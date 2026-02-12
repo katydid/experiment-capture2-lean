@@ -9,14 +9,20 @@ import Capture.Regex.Lang
 
 -- A symbolic regular expression defined over a generic symbol
 inductive Regex (σ: Type) where
-  | emptyset | emptystr | symbol (s: σ) | or (r1 r2: Regex σ)
+  | emptyset
+  | emptystr
+  | matched (c: σ)
+  | symbol (s: σ) | or (r1 r2: Regex σ)
   | concat (r1 r2: Regex σ) | star (r1: Regex σ)
   | group (id: Nat) (x: Regex σ)
   deriving DecidableEq, Ord, Repr, Hashable
 
 -- null defines whether a regular expression matches the empty string.
 def Regex.null: (r: Regex σ) → Bool
-  | emptyset => false | emptystr => true | symbol _ => false
+  | emptyset => false
+  | emptystr => true
+  | matched _ => true
+  | symbol _ => false
   | or r1 r2 => (null r1 || null r2) | concat r1 r2 => (null r1 && null r2)
   | star _ => true | group _ r1 => null r1
 
@@ -25,6 +31,7 @@ def Regex.denote (Φ: σ → α → Prop) (r: Regex σ) (xs: List α): Prop :=
   match r with
   | emptyset => False
   | emptystr => xs = []
+  | matched _ => xs = []
   | symbol s => match xs with
     | [x] => Φ s x | _ => False
   | or r1 r2 => (denote Φ r1 xs) \/ (denote Φ r2 xs)
@@ -74,8 +81,11 @@ theorem denote_onlyif {α: Type} (Φ : σ → α → Prop) (condition: Prop) [dc
 end Regex
 
 -- derive defines the derivative of a regular expression.
-def Regex.derive (Φ: σ → α → Bool) (r: Regex σ) (a: α): Regex σ := match r with
-  | emptyset => emptyset | emptystr => emptyset
+def Regex.derive (Φ: σ → α → Bool) (r: Regex σ) (a: α): Regex σ :=
+  match r with
+  | emptyset => emptyset
+  | emptystr => emptyset
+  | matched _ => emptyset
   | symbol s => onlyif (Φ s a) emptystr
   | or r1 r2 => or (derive Φ r1 a) (derive Φ r2 a)
   | concat r1 r2 => or
@@ -138,6 +148,11 @@ theorem denote_emptyset {α: Type} {σ: Type} (Φ: σ → α → Prop):
 
 theorem denote_emptystr {α: Type} {σ: Type} (Φ: σ → α → Prop):
   denote Φ emptystr = Lang.emptystr := by
+  funext xs
+  simp only [denote, Lang.emptystr]
+
+theorem denote_matched {α: Type} {σ: Type} (Φ: σ → α → Prop) (s: σ):
+  denote Φ (matched s) = Lang.emptystr := by
   funext xs
   simp only [denote, Lang.emptystr]
 
@@ -220,6 +235,10 @@ theorem null_commutes {σ: Type} {α: Type} (Φ: σ → α → Prop) (r: Regex �
     unfold denote
     unfold null
     simp only
+  | matched _ =>
+    unfold denote
+    unfold null
+    simp only
   | symbol p =>
     unfold denote
     unfold null
@@ -255,6 +274,9 @@ theorem derive_commutes {σ: Type} {α: Type} (Φ: σ → α → Prop) [Decidabl
     rw [Lang.derive_emptyset]
   | emptystr =>
     simp only [derive, denote_emptyset, denote_emptystr]
+    rw [Lang.derive_emptystr]
+  | matched _ =>
+    simp only [derive, denote_emptyset, denote_matched]
     rw [Lang.derive_emptystr]
   | symbol p =>
     simp only [denote_symbol]

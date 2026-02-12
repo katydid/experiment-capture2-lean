@@ -4,9 +4,13 @@
 import Capture.Regex.Regex
 
 def Regex.map (r: Regex α) (f: α → β): Regex β := match r with
-  | emptyset => emptyset | emptystr => emptystr | star r1 => star (map r1 f)
-  | symbol s => symbol (f s) | or r1 r2 => or (map r1 f) (map r2 f)
+  | emptyset => emptyset
+  | emptystr => emptystr
+  | matched s => matched (f s)
+  | symbol s => symbol (f s)
+  | or r1 r2 => or (map r1 f) (map r2 f)
   | concat r1 r2 => concat (map r1 f) (map r2 f)
+  | star r1 => star (map r1 f)
   | group n r1 => group n (map r1 f)
 
 namespace Regex
@@ -17,6 +21,8 @@ theorem map_id (r: Regex α):
   | emptyset =>
     simp only [map]
   | emptystr =>
+    simp only [map]
+  | matched _ =>
     simp only [map]
   | symbol =>
     simp only [map]
@@ -42,6 +48,8 @@ theorem map_map (r: Regex α) (f: α → β) (g: β → σ):
     simp only [map]
   | emptystr =>
     simp only [map]
+  | matched _ =>
+    simp only [map]
   | symbol =>
     simp only [map]
   | or r1 r2 ih1 ih2 =>
@@ -65,6 +73,8 @@ theorem map_null {σ} (Φ: σ → Bool) (r: Regex σ):
   | emptyset =>
     simp only [map, Regex.null]
   | emptystr =>
+    simp only [map, Regex.null]
+  | matched _ =>
     simp only [map, Regex.null]
   | symbol _ =>
     simp only [map, Regex.null]
