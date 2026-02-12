@@ -1,0 +1,8 @@
+name = "experiment-capture2-lean"
+version = "0.1.0"
+defaultTargets = ["Capture"]
+
+[[lean_lib]]
+name = "Capture"
+
+

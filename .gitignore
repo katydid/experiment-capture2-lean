@@ -9,4 +9,4 @@ lake-packages/*
 /lake-packages/*
 !/lake-packages/manifest.json
 prelude/build/
-/lakefile.olean
+/lakefile.olean/.lake
