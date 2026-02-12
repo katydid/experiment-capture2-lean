@@ -10,16 +10,15 @@ import Capture.Regex.Lang
 -- A symbolic regular expression defined over a generic symbol
 inductive Regex (σ: Type) where
   | emptyset | emptystr | symbol (s: σ) | or (r1 r2: Regex σ)
-  | concat (r1 r2: Regex σ) | star (r1: Regex σ) | interleave (r1 r2: Regex σ)
-  | and (r1 r2: Regex σ) | compliment (r1: Regex σ)
+  | concat (r1 r2: Regex σ) | star (r1: Regex σ)
+  | group (id: Nat) (x: Regex σ)
   deriving DecidableEq, Ord, Repr, Hashable
 
 -- null defines whether a regular expression matches the empty string.
 def Regex.null: (r: Regex σ) → Bool
   | emptyset => false | emptystr => true | symbol _ => false
   | or r1 r2 => (null r1 || null r2) | concat r1 r2 => (null r1 && null r2)
-  | star _ => true | interleave r1 r2 => (null r1 && null r2)
-  | and r1 r2 => (null r1 && null r2) | compliment r1 => ! (null r1)
+  | star _ => true | group _ r1 => null r1
 
 -- denote defines the semantics of a regular expression.
 def Regex.denote (Φ: σ → α → Prop) (r: Regex σ) (xs: List α): Prop :=
@@ -36,18 +35,14 @@ def Regex.denote (Φ: σ → α → Prop) (r: Regex σ) (xs: List α): Prop :=
     | (x::xs') => ∃ (i: Fin xs.length),
                         (denote Φ r1 (x::List.take i xs'))
                         /\ (denote Φ (Regex.star r1) (List.drop i xs'))
-  | interleave r1 r2 => ∃ (i: Fin (List.interleaves xs).length),
-        (denote Φ r1 (List.get (List.interleaves xs) i).1)
-     /\ (denote Φ r2 (List.get (List.interleaves xs) i).2)
-  | and r1 r2 => (denote Φ r1 xs) /\ (denote Φ r2 xs)
-  | compliment r1 => Not (denote Φ r1 xs)
+  | group _ r1 => denote Φ r1 xs
   termination_by (r, xs.length)
 
 namespace Regex
 
 -- unescapable is true if a derivative will always result in the same regular expression that the input.
 def unescapable :(x: Regex σ) → Bool
-  | emptyset => true | compliment emptyset => true | _ => false
+  | emptyset => true | _ => false
 
 -- onlyif (scalar operator in https://doi.org/10.1145/3473583) is a helper function use to define derivatives of regular expressions.
 def onlyif (cond: Prop) [dcond: Decidable cond] (r: Regex σ): Regex σ :=
@@ -58,12 +53,6 @@ def oneOrMore (r: Regex σ) := concat r (star r)
 
 -- optional is the `r?` operator for regular expressions.
 def optional (r: Regex σ) := or r emptystr
-
--- starAny is the `.*` operator for regular expressions.
-def starAny: Regex σ := compliment emptyset
-
--- contains is the `.*r.*` operator for regular expressions.
-def contains (r: Regex σ) := concat starAny (concat r starAny)
 
 -- denote_onlyif proves the the onlyif function (or operator) is equivalent to the language semantics.
 theorem denote_onlyif {α: Type} (Φ : σ → α → Prop) (condition: Prop) [dcond: Decidable condition] (r: Regex σ):
@@ -93,11 +82,7 @@ def Regex.derive (Φ: σ → α → Bool) (r: Regex σ) (a: α): Regex σ := mat
       (concat (derive Φ r1 a) r2)
       (onlyif (null r1) (derive Φ r2 a))
   | star r1 => concat (derive Φ r1 a) (star r1)
-  | interleave r1 r2 => or
-      (interleave (derive Φ r1 a) r2)
-      (interleave (derive Φ r2 a) r1)
-  | and r1 r2 => and (derive Φ r1 a) (derive Φ r2 a)
-  | compliment r1 => compliment (derive Φ r1 a)
+  | group n r1 => group n (derive Φ r1 a)
 
 -- example derivative
 #guard Regex.derive (· == ·) (Regex.or (Regex.symbol 1) (Regex.symbol 2)) 1
@@ -216,26 +201,10 @@ theorem denote_star {α: Type} {σ: Type} (Φ: σ → α → Prop) (r: Regex σ)
   funext xs
   rw [denote_star_iff]
 
-theorem denote_interleave {α: Type} {σ: Type} (Φ: σ → α → Prop) (r1 r2: Regex σ):
-  denote Φ (interleave r1 r2) = Lang.interleave (denote Φ r1) (denote Φ r2) := by
+theorem denote_group {α: Type} {σ: Type} (Φ: σ → α → Prop) (r: Regex σ):
+  denote Φ (group n r) = denote Φ r := by
   funext xs
-  cases xs with
-  | nil =>
-    rw [Lang.interleave]
-    rw [denote]
-  | cons x xs =>
-    rw [Lang.interleave]
-    rw [denote]
-
-theorem denote_and {α: Type} {σ: Type} (Φ: σ → α → Prop) (r1 r2: Regex σ):
-  denote Φ (and r1 r2) = Lang.and (denote Φ r1) (denote Φ r2) := by
-  funext
-  simp only [denote, Lang.and]
-
-theorem denote_compliment {α: Type} {σ: Type} (Φ: σ → α → Prop) (r1: Regex σ):
-  denote Φ (compliment r1) = Lang.compliment (denote Φ r1) := by
-  funext
-  simp only [denote, Lang.compliment]
+  simp [denote]
 
 -- Commutes proofs
 
@@ -273,31 +242,10 @@ theorem null_commutes {σ: Type} {α: Type} (Φ: σ → α → Prop) (r: Regex �
     unfold denote
     unfold null
     simp only
-  | interleave r1 r2 ih1 ih2 =>
-    unfold denote
-    rw [<- Lang.interleave]
-    rw [<- Lang.interleave_derive_is_interleave]
-    rw [Lang.interleave_derive]
-    unfold null
-    rw [Bool.and_eq_true r1.null r2.null]
-    rw [ih1]
-    rw [ih2]
-  | and r1 r2 ih1 ih2 =>
+  | group _ r1 ih =>
     unfold denote
     unfold null
-    rw [<- ih1]
-    rw [<- ih2]
-    rw [Bool.and_eq_true]
-  | compliment r1 ih1 =>
-    unfold denote
-    unfold null
-    -- aesop?
-    simp_all only [eq_iff_iff, Bool.not_eq_eq_eq_not, Bool.not_true]
-    apply Iff.intro
-    · intro a
-      simp_all only [Bool.false_eq_true, false_iff, not_false_eq_true]
-    · intro a
-      simp_all only [iff_false, Bool.not_eq_true]
+    exact ih
 
 theorem derive_commutes {σ: Type} {α: Type} (Φ: σ → α → Prop) [DecidableRel Φ] (r: Regex σ) (x: α):
   denote Φ (derive (fun s a => Φ s a) r x) = Lang.derive (denote Φ r) x := by
@@ -336,28 +284,11 @@ theorem derive_commutes {σ: Type} {α: Type} (Φ: σ → α → Prop) [Decidabl
       Lang.concat (denote Φ (derive (fun s a => Φ s a) r1 x)) (Lang.star (denote Φ r1))
       = Lang.concat (Lang.derive (denote Φ r1) x) (Lang.star (denote Φ r1))
     congr
-  | interleave r1 r2 ih1 ih2 =>
-    simp only [denote_interleave, derive]
-    simp only [Lang.derive_interleave]
-    rw [<- ih1]
-    rw [<- ih2]
-    simp only [denote_or]
+  | group n r1 ih1 =>
+    simp [denote_group]
+    simp [derive]
+    simp [denote_group]
     congr
-    · simp only [denote_interleave]
-    · simp only [denote_interleave]
-  | and r1 r2 ih1 ih2 =>
-    simp only [denote_and, derive]
-    rw [Lang.derive_and]
-    unfold Lang.and
-    rw [ih1]
-    rw [ih2]
-  | compliment r1 ih1 =>
-    simp only [denote_compliment, derive]
-    rw [Lang.derive_compliment]
-    unfold Lang.compliment
-    rw [ih1]
-    simp only [Lang.derive]
-    rfl
 
 theorem derive_commutesb {σ: Type} {α: Type} (Φ: σ → α → Bool) (r: Regex σ) (x: α):
   denote (fun s a => Φ s a) (derive Φ r x) = Lang.derive (denote (fun s a => Φ s a) r) x := by
