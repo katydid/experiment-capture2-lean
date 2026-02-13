@@ -3,8 +3,7 @@ import Capture.Grammar.Grammar
 
 import Capture.Std.Hedge
 
-
-def extract (x: Regex σ (Captured α)): Hedge (Nat ⊕ α) :=
+def extract (x: Regex σ (Captured α)): List (Captured α) :=
   match x with
   -- should never be encountered, since emptyset is not nullable.
   | Regex.emptyset => []
