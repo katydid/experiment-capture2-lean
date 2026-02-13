@@ -114,7 +114,7 @@ def Node.hasDecEqs [DecidableEq α]: (as bs : Hedge α) → Decidable (Eq as bs)
       | isTrue habs => isTrue (hab ▸ habs ▸ rfl)
 end
 
-instance[DecidableEq α] : DecidableEq (Node α) := Node.hasDecEq
+instance [DecidableEq α] : DecidableEq (Node α) := Node.hasDecEq
 
 local elab "simp_sizeOf" : tactic => do
   Lean.Elab.Tactic.evalTactic (<- `(tactic|

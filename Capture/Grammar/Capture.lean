@@ -15,7 +15,7 @@ def neutralize (x: Regex (φ × Ref n) α): Regex (φ × Ref n) α :=
   | Regex.star y => Regex.star (neutralize y)
   | Regex.group id y => Regex.group id (neutralize y)
 
-def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ × Ref n) (Captured α)) (node: Hedge.Node α): Regex (φ × Ref n) (Captured α) :=
+partial def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ × Ref n) (Captured α)) (node: Hedge.Node α): Regex (φ × Ref n) (Captured α) :=
   match x with
   | Regex.emptyset => Regex.emptyset
   | Regex.emptystr => Regex.emptyset
@@ -44,16 +44,16 @@ def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ 
   | Regex.star y => Regex.concat (derive G Φ y node) x
   | Regex.group n y =>
     Regex.group n (derive G Φ y node)
-  termination_by (node, x)
-  decreasing_by
-    · sorry -- symbol
-    · sorry -- left or
-    · sorry -- right or
-    · sorry -- left concat
-    · sorry -- right concat
-    · sorry -- left concat not null
-    · sorry -- star
-    · sorry -- group
+  -- termination_by (node, x)
+  -- decreasing_by
+  --   · sorry -- symbol
+  --   · sorry -- left or
+  --   · sorry -- right or
+  --   · sorry -- left concat
+  --   · sorry -- right concat
+  --   · sorry -- left concat not null
+  --   · sorry -- star
+  --   · sorry -- group
 
 def captures (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ × Ref n) (Captured α)) (nodes: Hedge α): Option (List (Nat × Hedge α)) :=
   let dx := List.foldl (derive G Φ) x nodes
@@ -285,5 +285,59 @@ def runCapturePath (id: Nat) (G: Grammar n Char (Captured Char)) (xs: Hedge Char
   == Option.some [
     Hedge.Node.mk 'b' [
       Hedge.Node.mk 'c' []
+    ]
+  ]
+
+-- recursive 1 level
+#guard runCapture 1
+  (Grammar.mk (Regex.symbol ('a', 0))
+    #v[Regex.group 1 (Regex.optional (Regex.symbol ('b', 0)))]
+  )
+  [
+    Hedge.Node.mk 'a' [
+      Hedge.Node.mk 'b' []
+    ]
+  ]
+  == Option.some [
+    Hedge.Node.mk 'b' []
+  ]
+
+-- recursive 2 levels
+#guard runCapture 1
+  (Grammar.mk (Regex.symbol ('a', 0))
+    #v[Regex.group 1 (Regex.optional (Regex.symbol ('b', 0)))]
+  )
+  [
+    Hedge.Node.mk 'a' [
+      Hedge.Node.mk 'b' [
+        Hedge.Node.mk 'b' []
+      ]
+    ]
+  ]
+  == Option.some [
+    Hedge.Node.mk 'b' [
+      Hedge.Node.mk 'b' []
+    ]
+  ]
+
+-- recursive 3 levels
+#guard runCapture 1
+  (Grammar.mk (Regex.symbol ('a', 0))
+    #v[Regex.group 1 (Regex.optional (Regex.symbol ('b', 0)))]
+  )
+  [
+    Hedge.Node.mk 'a' [
+      Hedge.Node.mk 'b' [
+        Hedge.Node.mk 'b' [
+          Hedge.Node.mk 'b' []
+        ]
+      ]
+    ]
+  ]
+  == Option.some [
+    Hedge.Node.mk 'b' [
+      Hedge.Node.mk 'b' [
+        Hedge.Node.mk 'b' []
+      ]
     ]
   ]
