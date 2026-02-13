@@ -33,7 +33,7 @@ def neutralize (x: Tegex α): Tegex α :=
   match x with
   | Tegex.emptyset => Tegex.emptyset
   | Tegex.epsilon => Tegex.epsilon
-  | Tegex.matched tok childExpr => Tegex.matched tok (neutralize childExpr)
+  | Tegex.matched tok childExpr => Tegex.matched tok childExpr
   | Tegex.tree _ _ => Tegex.emptyset
   | Tegex.or y z => Tegex.or (neutralize y) (neutralize z)
   | Tegex.concat y z => Tegex.concat (neutralize y) (neutralize z)
@@ -70,14 +70,14 @@ partial def derive [DecidableEq α] (x: Tegex α) (tree: Hedge.Node α): Tegex �
   | Tegex.group n y =>
     Tegex.group n (derive y tree)
 
-def extract (x: Tegex α): Hedge α :=
+def extract (x: Tegex α): Hedge (Nat ⊕ α) :=
   match x with
   -- should never be encountered, since emptyset is not nullable.
   | Tegex.emptyset => []
   | Tegex.epsilon => []
   -- should never be encountered, since tree is not nullable.
   | Tegex.tree _ _ => []
-  | Tegex.matched tok childExpr => [Hedge.Node.mk tok (extract childExpr)]
+  | Tegex.matched label childExpr => [Hedge.Node.mk (Sum.inr label) (extract childExpr)]
   | Tegex.or y z =>
     -- Under POSIX semantics, we prefer matching the left alternative.
     if y.nullable
@@ -89,30 +89,37 @@ def extract (x: Tegex α): Hedge α :=
     -- Recursively extracting under the star causes empty captures to be reported, which we do not want under POSIX semantics.
   | Tegex.star _ => []
     -- Ignore group, this group will be extracted later by extractGroups.
-  | Tegex.group _ y => extract y
+  | Tegex.group n y => [Hedge.Node.mk (Sum.inl n) (extract y)]
+
+def extractHedge (xs: Hedge (Nat ⊕ α)): Hedge α :=
+  match xs with
+  | [] => []
+  | Hedge.Node.mk (Sum.inl _id) children::xs' =>
+    extractHedge children ++ extractHedge xs'
+  | Hedge.Node.mk (Sum.inr a) children::xs' =>
+    Hedge.Node.mk a (extractHedge children)::extractHedge xs'
+
+def extractGroups' (xs: Hedge (Nat ⊕ α)): List (Nat × Hedge α) :=
+  match xs with
+  | [] => []
+  | Hedge.Node.mk (Sum.inl id) children::xs' =>
+    (id, extractHedge children) :: extractGroups' xs'
+  | Hedge.Node.mk (Sum.inr _a) children::xs' =>
+    extractGroups' children ++ extractGroups' xs'
+
+def extractPathGroups' (xs: Hedge (Nat ⊕ α)): List (Nat × Hedge α) :=
+  match xs with
+  | [] => []
+  | Hedge.Node.mk (Sum.inl id) children::xs' =>
+    (id, extractHedge children) :: extractPathGroups' xs'
+  | Hedge.Node.mk (Sum.inr a) children::xs' =>
+    List.map (fun (id, h) => (id, [Hedge.Node.mk a h])) (extractPathGroups' children) ++ extractPathGroups' xs'
 
 def extractGroups (x: Tegex α): List (Nat × Hedge α) :=
-  match x with
-  -- should never be encountered, since emptyset is not nullable.
-  | Tegex.emptyset => []
-  | Tegex.epsilon => []
-  -- should never be encountered, since tree is not nullable.
-  | Tegex.tree _ _ => []
-  -- There may be groups in the childExpr that needs to be extracted.
-  | Tegex.matched _ childExpr => extractGroups childExpr
-  | Tegex.or y z =>
-    -- Under POSIX semantics, we prefer matching the left alternative.
-    if y.nullable
-    then extractGroups y
-    else extractGroups z
-  | Tegex.concat y z =>
-    extractGroups y ++ extractGroups z
-    -- Groups under a star are ignored.
-    -- Recursively extracting under the star causes empty captures to be reported, which we do not want under POSIX semantics.
-  | Tegex.star _ => []
-    -- extract the forest for the single group id
-  | Tegex.group id y => (id, extract y) :: extractGroups y
+  extractGroups' (extract x)
 
+def extractPathGroups (x: Tegex α): List (Nat × Hedge α) :=
+  extractPathGroups' (extract x)
 
 def captures [DecidableEq α] (x: Tegex α) (nodes: Hedge α): Option (List (Nat × Hedge α)) :=
   let dx := List.foldl derive x nodes
@@ -131,25 +138,6 @@ def capture [DecidableEq α] [Ord α] (name: Nat) (x: Tegex α) (nodes: Hedge α
       else Option.none
     ) cs
   List.head? (List.reverse (List.mergeSort hedges (le := fun x y => (Ord.compare x y).isLE)))
-
--- extractPathGroups is just like extractGroups, except for the Tregex.matched case.
--- This now records the full path if a group below was matched.
-def extractPathGroups [DecidableEq α] (x: Tegex α): List (Nat × Hedge α) :=
-  match x with
-  | Tegex.emptyset => []
-  | Tegex.epsilon => []
-  | Tegex.tree _ _ => []
-  | Tegex.matched tok childExpr =>
-  -- NEW: The only line that is different from extractGroups
-    List.map (fun (id, children) => (id, [Hedge.Node.mk tok children])) (extractPathGroups childExpr)
-  | Tegex.or y z =>
-    if y.nullable
-    then extractPathGroups y
-    else extractPathGroups z
-  | Tegex.concat y z =>
-    extractPathGroups y ++ extractPathGroups z
-  | Tegex.star _ => []
-  | Tegex.group id y => (id, extract y) :: extractPathGroups y
 
 -- capturePaths is just like captures, except extractGroups is replaced by extractPathGroups
 def capturePaths [DecidableEq α] (x: Tegex α) (forest: Hedge α): Option (List (Nat × Hedge α)) :=

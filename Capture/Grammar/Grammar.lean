@@ -2,6 +2,8 @@
 
 import Capture.Regex.Regex
 
+import Capture.Std.Hedge
+
 -- ## Definition 3.2.3: Regular Hedge Grammar
 --   𝐺 = (𝑁, 𝑇, 𝑆, 𝑃)
 --   𝑁 a finite set of non-terminals
@@ -12,12 +14,14 @@ import Capture.Regex.Regex
 -- Ref is a non-terminal, where n represents the number of non-terminals
 abbrev Ref (n: Nat) := Fin n
 
+abbrev Captured α := (α × Hedge (Nat ⊕ α))
+
 -- symbolic regular hedge grammar
-structure Grammar (n: Nat) (φ: Type) where
-  start: Regex (φ × Ref n)
-  prods: Vector (Regex (φ × Ref n)) n
+structure Grammar (n: Nat) (φ: Type) (α: Type) where
+  start: Regex (φ × Ref n) α
+  prods: Vector (Regex (φ × Ref n) α) n
 
 namespace Grammar
 
-def lookup (G: Grammar n φ) (ref: Ref n): Regex (φ × Ref n) :=
+def lookup (G: Grammar n φ α) (ref: Ref n): Regex (φ × Ref n) α :=
   Vector.get G.prods ref
