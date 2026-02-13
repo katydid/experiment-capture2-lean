@@ -15,7 +15,7 @@ def neutralize (x: Regex (φ × Ref n) α): Regex (φ × Ref n) α :=
   | Regex.star y => Regex.star (neutralize y)
   | Regex.group id y => Regex.group id (neutralize y)
 
-partial def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ × Ref n) (Captured α)) (node: Hedge.Node α): Regex (φ × Ref n) (Captured α) :=
+def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ × Ref n) (Captured α)) (node: Hedge.Node α): Regex (φ × Ref n) (Captured α) :=
   match x with
   | Regex.emptyset => Regex.emptyset
   | Regex.emptystr => Regex.emptyset
@@ -28,7 +28,7 @@ partial def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Re
       then
         let dchild := List.foldl (derive G Φ) (G.lookup ref) children
         if dchild.null
-        then Regex.matched (label, extract dchild)
+        then Regex.matched (Hedge.Node.mk (Sum.inr label) (extract dchild))
         else Regex.emptyset
       else Regex.emptyset
   | Regex.or y z => Regex.or (derive G Φ y node) (derive G Φ z node)
@@ -44,7 +44,16 @@ partial def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Re
   | Regex.star y => Regex.concat (derive G Φ y node) x
   | Regex.group n y =>
     Regex.group n (derive G Φ y node)
-
+  termination_by (node, x)
+  decreasing_by
+    · sorry -- symbol
+    · sorry -- left or
+    · sorry -- right or
+    · sorry -- left concat
+    · sorry -- right concat
+    · sorry -- left concat not null
+    · sorry -- star
+    · sorry -- group
 
 def captures (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ × Ref n) (Captured α)) (nodes: Hedge α): Option (List (Nat × Hedge α)) :=
   let dx := List.foldl (derive G Φ) x nodes
@@ -120,7 +129,6 @@ def runCapturePath (id: Nat) (G: Grammar n Char (Captured Char)) (xs: Hedge Char
   ) #v[Regex.emptystr])
   (treeString "aaabaaa")
   == Option.some (treeString "b")
-
 
 #guard runCapture 1 (Grammar.mk (Regex.concat (Regex.concat
     (Regex.star (Regex.char 'a'))

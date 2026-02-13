@@ -11,7 +11,7 @@ def extract (x: Regex σ (Captured α)): Hedge (Nat ⊕ α) :=
   | Regex.emptystr => []
   -- should never be encountered, since tree is not nullable.
   | Regex.symbol _ => []
-  | Regex.matched (label, captured) => [Hedge.Node.mk (Sum.inr label) captured]
+  | Regex.matched c => [c]
   | Regex.or y z =>
     -- Under POSIX semantics, we prefer matching the left alternative.
     if y.null

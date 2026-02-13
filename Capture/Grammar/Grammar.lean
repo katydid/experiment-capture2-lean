@@ -14,7 +14,7 @@ import Capture.Std.Hedge
 -- Ref is a non-terminal, where n represents the number of non-terminals
 abbrev Ref (n: Nat) := Fin n
 
-abbrev Captured α := (α × Hedge (Nat ⊕ α))
+abbrev Captured α := Hedge.Node (Nat ⊕ α)
 
 -- symbolic regular hedge grammar
 structure Grammar (n: Nat) (φ: Type) (α: Type) where
