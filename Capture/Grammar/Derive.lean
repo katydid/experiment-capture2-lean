@@ -4,17 +4,6 @@ import Capture.Grammar.Extract
 
 import Capture.Std.Hedge
 
-def neutralize (x: Regex (φ × Ref n) α): Regex (φ × Ref n) α :=
-  match x with
-  | Regex.emptyset => Regex.emptyset
-  | Regex.emptystr => Regex.emptystr
-  | Regex.matched a => Regex.matched a
-  | Regex.symbol _ => Regex.emptyset
-  | Regex.or y z => Regex.or (neutralize y) (neutralize z)
-  | Regex.concat y z => Regex.concat (neutralize y) (neutralize z)
-  | Regex.star y => Regex.star (neutralize y)
-  | Regex.group id y => Regex.group id (neutralize y)
-
 def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ × Ref n) (Captured α)) (node: Hedge.Node α): Regex (φ × Ref n) (Captured α) :=
   match x with
   | Regex.emptyset => Regex.emptyset
@@ -39,7 +28,7 @@ def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ 
       -- A difference from the usual derive algorithm:
       -- To preserve the capture information in the nullable expression y,
       -- instead of (derive z node), we write:
-      (Regex.concat (neutralize y) (derive G Φ z node))
+      (Regex.concat y.neutralize (derive G Φ z node))
     else Regex.concat (derive G Φ y node) z
   | Regex.star y => Regex.concat (derive G Φ y node) x
   | Regex.group n y =>

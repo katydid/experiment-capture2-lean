@@ -26,6 +26,19 @@ def Regex.null: (r: Regex σ α) → Bool
   | or r1 r2 => (null r1 || null r2) | concat r1 r2 => (null r1 && null r2)
   | star _ => true | group _ r1 => null r1
 
+-- transform all symbols in emptyset
+def Regex.neutralize (x: Regex σ α): Regex σ α :=
+  match x with
+  | emptyset => emptyset
+  | emptystr => emptystr
+  | matched a => matched a
+  -- everything stays the same except symbol becomes emptyset
+  | symbol _ => emptyset
+  | or y z => or (neutralize y) (neutralize z)
+  | concat y z => concat (neutralize y) (neutralize z)
+  | star y => star (neutralize y)
+  | group id y => group id (neutralize y)
+
 -- denote defines the semantics of a regular expression.
 def Regex.denote (Φ: σ → α → Prop) (r: Regex σ α) (xs: List α): Prop :=
   match r with
