@@ -15,7 +15,7 @@ def neutralize (x: Regex (φ × Ref n) α): Regex (φ × Ref n) α :=
   | Regex.star y => Regex.star (neutralize y)
   | Regex.group id y => Regex.group id (neutralize y)
 
-partial def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ × Ref n) (Captured α)) (node: Hedge.Node α): Regex (φ × Ref n) (Captured α) :=
+def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ × Ref n) (Captured α)) (node: Hedge.Node α): Regex (φ × Ref n) (Captured α) :=
   match x with
   | Regex.emptyset => Regex.emptyset
   | Regex.emptystr => Regex.emptyset
@@ -44,16 +44,33 @@ partial def derive (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Re
   | Regex.star y => Regex.concat (derive G Φ y node) x
   | Regex.group n y =>
     Regex.group n (derive G Φ y node)
-  -- termination_by (node, x)
-  -- decreasing_by
-  --   · sorry -- symbol
-  --   · sorry -- left or
-  --   · sorry -- right or
-  --   · sorry -- left concat
-  --   · sorry -- right concat
-  --   · sorry -- left concat not null
-  --   · sorry -- star
-  --   · sorry -- group
+  termination_by (node, x)
+  decreasing_by
+    · -- symbol
+      apply Prod.Lex.left
+      apply Hedge.Node.sizeOf_children
+      assumption
+    · -- left or
+      apply Prod.Lex.right
+      simp +arith only [Regex.or.sizeOf_spec]
+    · -- right or
+      apply Prod.Lex.right
+      simp +arith only [Regex.or.sizeOf_spec]
+    · -- left concat
+      apply Prod.Lex.right
+      simp +arith only [Regex.concat.sizeOf_spec]
+    · -- right concat
+      apply Prod.Lex.right
+      simp +arith only [Regex.concat.sizeOf_spec]
+    · -- left concat not null
+      apply Prod.Lex.right
+      simp +arith only [Regex.concat.sizeOf_spec]
+    · -- star
+      apply Prod.Lex.right
+      simp +arith only [Regex.star.sizeOf_spec]
+    · -- group
+      apply Prod.Lex.right
+      simp +arith only [Regex.group.sizeOf_spec]
 
 def captures (G: Grammar n φ (Captured α)) (Φ: φ -> α -> Bool) (x: Regex (φ × Ref n) (Captured α)) (nodes: Hedge α): Option (List (Nat × Hedge α)) :=
   let dx := List.foldl (derive G Φ) x nodes
